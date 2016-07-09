@@ -1,12 +1,15 @@
 package model
 
+import datasource.SourceType
 /**
   * Created by wushuang on 16-7-8.
   */
 object test {
   def main(args: Array[String]) {
-    var item1 = new Item()
-    item1.prjId = 123
-    println(item1.prjId)
+    val b = SourceType.APP
+    a(b)
+  }
+  def a (i :SourceType.SourceType) = {
+    println(i)
   }
 }

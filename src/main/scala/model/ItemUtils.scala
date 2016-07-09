@@ -8,10 +8,7 @@ import datasource.SourceType.SourceType
   */
 object ItemUtils {
   def getRSID(x:Item,sourceType: SourceType): String = {
-    if (sourceType == SourceType.WEB){
-      return "" + x.cityId + "_" + x.channel + "_" + x.listId
-    }else{
-      return "" + x.cityName + "_" + x.channel + "_" + x.listId
-    }
+    if (sourceType == SourceType.WEB) "" + x.cityId + "_" + x.channel + "_" + x.listId
+    else "" + x.cityName + "_" + x.channel + "_" + x.listId
   }
 }
