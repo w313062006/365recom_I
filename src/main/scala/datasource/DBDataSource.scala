@@ -16,6 +16,6 @@ class DBDataSource(dbC:Connection,sqlString:String) {
   def load: List[UIPair] = {
     val runner = new QueryRunner()
     val pairs = runner.query(dbConn,sql,new BeanListHandler(classOf[UIPair]))
-    return pairs.asScala.toList
+    pairs.asScala.toList
   }
 }
