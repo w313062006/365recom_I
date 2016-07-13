@@ -3,25 +3,27 @@ package driver
 import java.io.File
 import java.util
 
-import datasource.SourceType
-import datasource.SourceType.SourceType
+import datasource.{DBDataSource, SourceType}
 import datasource.SourceType.SourceType
 import driver.RecommendType.RecommendType
-import model.Item
-import org.apache.commons.configuration.Configuration
+import filter.{PriceSegmenter, PriceSegmenterFactory}
+import model.PriceType.PriceType
+import model.{PriceType, Item}
+import model.PriceType.PriceType
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.commons.configuration.ConfigurationException
 import com.google.common.base.{MoreObjects, Supplier, Throwables, Suppliers}
 
 import java.sql.{DriverManager, SQLException, Connection}
-import java.util.List
 import org.apache.commons.dbutils.handlers.{ColumnListHandler, BeanListHandler}
 import org.apache.commons.dbutils.{BasicRowProcessor, QueryRunner, ResultSetHandler}
+import com.google.common.collect.{Table,HashBasedTable}
+
 
 /**
   * Created by wushuang on 16-7-12.
   */
-class JobConfiguration {
+class JobConfiguration(_sourceType: SourceType,_recommendType:RecommendType,configFile:File){
   /*
   若在调试模式下运行作业,使用定义好的数据源作为开始日期
   格式为"20160101"
@@ -47,6 +49,8 @@ class JobConfiguration {
   private final val KEY_INCREMENTAL_WEB_DB_USER = "inc.web.db.user"
   //web端增量数据库的密码
   private final val KEY_INCREMENTAL_WEB_DB_PASSWD = "inc.web.db.passwd"
+  //web增量数据库的sql
+  private final val KEY_INCREMENTAL_WEB_SQL = "inc.web.db.sql"
   //app端增量数据库的url
   private final val KEY_INCREMENTAL_APP_DB_URL = "inc.app.db.url"
   //app端增量数据库的用户名
@@ -87,52 +91,52 @@ class JobConfiguration {
   private var sourceType:SourceType = null
   private var recommedType:RecommendType = null
   private var config:PropertiesConfiguration = null
+  private var segmenterFactory:PriceSegmenterFactory = null
 
-  private final var itemSupplier:Supplier[List[Item]] = null
-  private final var appPageIdSupplier:Supplier[List[String]] = null
+  private final var itemSupplier:Supplier[util.List[Item]] = null
+  private final var appPageIdSupplier:Supplier[util.List[String]] = null
   private final var incrementalConnectionSupplier:Supplier[Connection] = null
 
-  def JobConfiguration(_sourceType: SourceType,_recommendType:RecommendType,configFile:File):Unit={
-    sourceType = _sourceType
-    recommedType = _recommendType
-    config = new PropertiesConfiguration()
-    config.setDelimiterParsingDisabled(true)
-    try{
-      config.load(configFile)
-    }catch {
+  sourceType = _sourceType
+  recommedType = _recommendType
+  config = new PropertiesConfiguration()
+  config.setDelimiterParsingDisabled(true)
+  try{
+    config.load(configFile)
+  }catch {
       //错误继续抛出
-      case ex : ConfigurationException => throw Throwables.propagate(ex)
-    }
-
-    val propertyConnectionSupplier = Suppliers.memoize(new ConnectionSupplier(config.getString(KEY_DB_URL),
-                                                                              config.getString(KEY_DB_USER),
-                                                                              config.getString(KEY_DB_PASSWD)
-    ))
-
-    if (sourceType == SourceType.WEB){
-      this.incrementalConnectionSupplier = Suppliers.memoize(new ConnectionSupplier(config.getString(KEY_INCREMENTAL_WEB_DB_URL),
-                                                                                    config.getString(KEY_INCREMENTAL_WEB_DB_USER),
-                                                                                    config.getString(KEY_INCREMENTAL_WEB_DB_PASSWD)
-      ))
-    }else{
-      this.incrementalConnectionSupplier = Suppliers.memoize(new ConnectionSupplier(config.getString(KEY_INCREMENTAL_APP_DB_URL),
-                                                                                    config.getString(KEY_INCREMENTAL_APP_DB_USER),
-                                                                                    config.getString(KEY_INCREMENTAL_APP_DB_PASSWD)
-      ))
-    }
-    this.itemSupplier = Suppliers.memoize(new DBQuerySupplier(propertyConnectionSupplier.get(),"select WP.PRJ_ID as prjId, CI.CITY_ID_WEB_IP as cityId,CI.CITY_NAME as cityName, CI.CITY_KEY as cityKey, WC.ITEMNAME as name, WP.PRJ_LISTID as listId,"
-      + " WC.CHANNEL as channel, WP.PRJ_DIST as dist,WP.PRJ_BLOCK as block,WP.MAP_X as mapx,"
-      + " WP.MAP_Y as mapy,WC.PRICE as price,WC.PRICE_MORE as priceMore, WC.SALESTAT as salestats"
-      + " from dwb_web_w_channel WC  inner join dwb_web_project WP on WC.PRJ_ID = WP.PRJ_ID inner join dwd_city_info CI on WP.PRJ_CITY = CI.CITY_ID",
-      new BeanListHandler(classOf[Item],new BasicRowProcessor())
-    ))
-
-    this.appPageIdSupplier = Suppliers.memoize(new DBQuerySupplier(propertyConnectionSupplier.get(),
-                                                                    "select PAGE_ID from dwd_app_page_info t where t.channel_type = 1",
-                                                                   new ColumnListHandler[String](1)
-    ))
-
+    case ex : ConfigurationException => throw Throwables.propagate(ex)
   }
+
+  val propertyConnectionSupplier = Suppliers.memoize(new ConnectionSupplier(config.getString(KEY_DB_URL),
+                                                                            config.getString(KEY_DB_USER),
+                                                                            config.getString(KEY_DB_PASSWD)
+  ))
+
+  if (sourceType == SourceType.WEB){
+    this.incrementalConnectionSupplier = Suppliers.memoize(new ConnectionSupplier(config.getString(KEY_INCREMENTAL_WEB_DB_URL),
+                                                                                  config.getString(KEY_INCREMENTAL_WEB_DB_USER),
+                                                                                  config.getString(KEY_INCREMENTAL_WEB_DB_PASSWD)
+    ))
+  }else{
+    this.incrementalConnectionSupplier = Suppliers.memoize(new ConnectionSupplier(config.getString(KEY_INCREMENTAL_APP_DB_URL),
+                                                                                  config.getString(KEY_INCREMENTAL_APP_DB_USER),
+                                                                                  config.getString(KEY_INCREMENTAL_APP_DB_PASSWD)
+    ))
+  }
+  this.itemSupplier = Suppliers.memoize(new DBQuerySupplier(propertyConnectionSupplier.get(),"select WP.PRJ_ID as prjId, CI.CITY_ID_WEB_IP as cityId,CI.CITY_NAME as cityName, CI.CITY_KEY as cityKey, WC.ITEMNAME as name, WP.PRJ_LISTID as listId,"
+    + " WC.CHANNEL as channel, WP.PRJ_DIST as dist,WP.PRJ_BLOCK as block,WP.MAP_X as mapx,"
+    + " WP.MAP_Y as mapy,WC.PRICE as price,WC.PRICE_MORE as priceMore, WC.SALESTAT as salestats"
+    + " from dwb_web_w_channel WC  inner join dwb_web_project WP on WC.PRJ_ID = WP.PRJ_ID inner join dwd_city_info CI on WP.PRJ_CITY = CI.CITY_ID",
+    new BeanListHandler(classOf[Item],new BasicRowProcessor())
+  ))
+
+  this.appPageIdSupplier = Suppliers.memoize(new DBQuerySupplier(propertyConnectionSupplier.get(),
+                                                                 "select PAGE_ID from dwd_app_page_info t where t.channel_type = 1",
+                                                                 new ColumnListHandler[String](1)
+  ))
+
+
 
   def getRecommendNum = config.getInt(KEY_RECOMMEND_NUMBER)
   def getSourceType = sourceType
@@ -156,6 +160,23 @@ class JobConfiguration {
     */
   def getItems: util.List[Item] = itemSupplier.get()
   def getAppPageId:util.List[String] = appPageIdSupplier.get()
+
+  def getPriceSegmentsFactory:PriceSegmenterFactory = {
+    if (segmenterFactory == null){
+      val table:Table[String,PriceType,PriceSegmenter] = HashBasedTable.create()
+      val citys = config.getString(KEY_PRICE_SEGMENTS_CITY).split(",").toList += KEY_PRICE_SEGMENTS_DEFAULT_CITY
+      //citys += KEY_PRICE_SEGMENTS_DEFAULT_CITY
+      for(i<-citys){
+        var segs: Array[String] = config.getString(KEY_PRICE_SEGMENTS_PREFIX + i + KEY_PRICE_SEGMENTS_PRICEPERSQM).split(",")
+        table.put(i,PriceType.PricePerSQM,new ArrayPriceSegmenter(segs.map(_.toInt)))
+
+        segs = config.getString(KEY_PRICE_SEGMENTS_PREFIX + i + KEY_PRICE_SEGMENTS_PRICEPERHOUSE).split(",")
+        table.put(i,PriceType.PricePerHouse,new ArrayPriceSegmenter(segs.map(_.toInt)))
+      }
+      segmenterFactory = new TablePriceSegmenterFactory(table)
+    }
+    segmenterFactory
+  }
   /**
     *
     * @param url
@@ -184,5 +205,24 @@ class JobConfiguration {
       }
 
     }
+  }
+
+  private class ArrayPriceSegmenter(segments:Array[Int]) extends PriceSegmenter{
+    override  def getStage(price:Int):Int ={
+      for (i<-segments.indices){
+        if (price < segments(i)) i
+      }
+      segments.length-1
+    }
+  }
+  private class TablePriceSegmenterFactory(table:Table[String,PriceType,PriceSegmenter]) extends PriceSegmenterFactory{
+    override def getPriceSegmenter(city:String,_type:PriceType):PriceSegmenter={
+      if (table.containsRow(city)) table.get(city,_type)
+      else table.get(KEY_PRICE_SEGMENTS_DEFAULT_CITY,_type)
+    }
+  }
+  def getDBDataSource:DBDataSource = {
+    if (sourceType == SourceType.WEB) new DBDataSource(incrementalConnectionSupplier.get(),config.getString(KEY_INCREMENTAL_WEB_SQL))
+    else new DBDataSource(incrementalConnectionSupplier.get(),config.getString(KEY_INCREMENTAL_APP_SQL))
   }
 }

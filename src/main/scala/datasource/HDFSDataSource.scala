@@ -16,18 +16,18 @@ class HDFSDataSource(_sqlContext: SQLContext, _rootDir: String, _effectiveDays: 
   val startDate = _startDate
   val SourceType = _sourceType
 
-  val fmt = DateTimeFormat.forPattern("yyyyMMdd")
+
   /*
   返回对应资源的路径
 
   @return 数据源中包含的文件路径列表
   */
   def getPaths : mutable.Set[String]={
-    var date = if (startDate != null) fmt.parseLocalDate(startDate) else null
+    var date = if (startDate != null) HDFSDataSource.fmt.parseLocalDate(startDate) else null
     val paths = mutable.Set.empty[String]
 
     for(i<-1 to effectiveDays){
-      val d: String = fmt.print(date)
+      val d: String = HDFSDataSource.fmt.print(date)
       paths += (pathJoin(rootDir, "data_date=" + d + "/*"))
       date = date.minusDays(i)
     }
@@ -38,4 +38,8 @@ class HDFSDataSource(_sqlContext: SQLContext, _rootDir: String, _effectiveDays: 
 
   //读取hdfs上的parquet数据
   def load : DataFrame = sqlContext.read.parquet(getPaths.toArray : _*)
+
+}
+object HDFSDataSource{
+  val fmt = DateTimeFormat.forPattern("yyyyMMdd")
 }

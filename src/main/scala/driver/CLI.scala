@@ -16,21 +16,21 @@ class CLI {
   def main(args: Array[String]): Unit = {
     val options = new JobOptions
 
-    try{
-      val parser = new JCommander(options,args.toArray: _*)
+    try
+      val parser = new JCommander(options, args.toArray: _*)
       //parser.parse(args:_*)
-      if(options.help) {
+      if (options.help) {
         parser.usage()
         return
       }
-      if(options.sourceType == SourceType.APP && (options.recommendType == RecommendType.LOCAL || options.recommendType == RecommendType.PRICE)){
+      if (options.sourceType == SourceType.APP && (options.recommendType == RecommendType.LOCAL || options.recommendType == RecommendType.PRICE)) {
         logger.error("App数据只能用于猜你喜欢推荐")
         return
       }
       logger.info(options.toString)
-
-    }catch {
-      case ex:Exception => logger.error(ex.getMessage,ex)
+      new JobDriver().run(new JobConfiguration(options.sourceType,options.recommendType,options.configFile))
+    catch {
+      case ex: Exception => logger.error(ex.getMessage, ex)
     }
 
   }
