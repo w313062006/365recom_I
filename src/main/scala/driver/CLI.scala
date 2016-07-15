@@ -16,7 +16,7 @@ class CLI {
   def main(args: Array[String]): Unit = {
     val options = new JobOptions
 
-    try
+    try {
       val parser = new JCommander(options, args.toArray: _*)
       //parser.parse(args:_*)
       if (options.help) {
@@ -28,8 +28,8 @@ class CLI {
         return
       }
       logger.info(options.toString)
-      new JobDriver().run(new JobConfiguration(options.sourceType,options.recommendType,options.configFile))
-    catch {
+      new JobDriver().run(new JobConfiguration(options.sourceType, options.recommendType, options.configFile))
+    }catch {
       case ex: Exception => logger.error(ex.getMessage, ex)
     }
 

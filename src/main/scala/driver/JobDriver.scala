@@ -1,8 +1,12 @@
 package driver
 
 
+import com.google.common.collect.{HashBiMap, BiMap}
 import databuild.LogDateFrameProcessor
+import datasource.SourceType
+import datasource.SourceType.SourceType
 import datasource.{AppLogTransformer, WebLogTransformer, HDFSDataSource, SourceType}
+import model.{ItemUtils, Item}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
@@ -37,7 +41,7 @@ class JobDriver {
   private def constructJobName(jobConfiguration: JobConfiguration):String = {
     "RS365-" + jobConfiguration.getSourceType + "-" + jobConfiguration.getRecommendType
   }
-  private def doOfflineRecommend(jobConfiguration: JobConfiguration):RecommendResult = {
+  private def doOfflineRecommend(jobConfiguration: JobConfiguration):/*RecommendResult*/Unit = {
     //初始化spark上下文
     val conf = new SparkConf().setAppName(constructJobName(jobConfiguration))
     val sc = new SparkContext(conf)
@@ -55,6 +59,14 @@ class JobDriver {
     val itemRSIDIndexBiMap = result._2
     val uiRDD = result._3
     uiRDD.cache()
+
+    val indexItemBiMap = constructIndexItemBiMap(jobConfiguration.getSourceType,
+                                                 jobConfiguration.getItems.asScala.toList,
+                                                 itemRSIDIndexBiMap)
+
+    logger.info("评分矩阵与数据库房源中的交集个数是" + indexItemBiMap.size())
+
+    //训练SVD相似性计算器
 
 
 
@@ -88,4 +100,12 @@ class JobDriver {
 
   }
 
+  def constructIndexItemBiMap(_type:SourceType, _items:List[Item],_itemRSIDIndexBiMap:BiMap[String,Int]) : BiMap[Int,Item] = {
+    val indexItemBiMap:BiMap[Int,Item] = HashBiMap.create()
+    for (i<- _items){
+      val rsid = ItemUtils.getRSID(i,_type)
+      if (_itemRSIDIndexBiMap.containsKey(rsid)) indexItemBiMap.put(_itemRSIDIndexBiMap.get(rsid),i)
+    }
+    indexItemBiMap
+  }
 }

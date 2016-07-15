@@ -164,7 +164,7 @@ class JobConfiguration(_sourceType: SourceType,_recommendType:RecommendType,conf
   def getPriceSegmentsFactory:PriceSegmenterFactory = {
     if (segmenterFactory == null){
       val table:Table[String,PriceType,PriceSegmenter] = HashBasedTable.create()
-      val citys = config.getString(KEY_PRICE_SEGMENTS_CITY).split(",").toList += KEY_PRICE_SEGMENTS_DEFAULT_CITY
+      val citys = config.getString(KEY_PRICE_SEGMENTS_CITY).split(",").toList :+ KEY_PRICE_SEGMENTS_DEFAULT_CITY
       //citys += KEY_PRICE_SEGMENTS_DEFAULT_CITY
       for(i<-citys){
         var segs: Array[String] = config.getString(KEY_PRICE_SEGMENTS_PREFIX + i + KEY_PRICE_SEGMENTS_PRICEPERSQM).split(",")
