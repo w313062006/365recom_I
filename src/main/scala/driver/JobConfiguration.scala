@@ -18,6 +18,8 @@ import java.sql.{DriverManager, SQLException, Connection}
 import org.apache.commons.dbutils.handlers.{ColumnListHandler, BeanListHandler}
 import org.apache.commons.dbutils.{BasicRowProcessor, QueryRunner, ResultSetHandler}
 import com.google.common.collect.{Table,HashBasedTable}
+import org.apache.spark.SparkContext
+import output.IntermediateStore
 
 
 /**
@@ -224,5 +226,10 @@ class JobConfiguration(_sourceType: SourceType,_recommendType:RecommendType,conf
   def getDBDataSource:DBDataSource = {
     if (sourceType == SourceType.WEB) new DBDataSource(incrementalConnectionSupplier.get(),config.getString(KEY_INCREMENTAL_WEB_SQL))
     else new DBDataSource(incrementalConnectionSupplier.get(),config.getString(KEY_INCREMENTAL_APP_SQL))
+  }
+  //获取保存中间结果的配置信息
+  def getIntermediateStore(sparkContext: SparkContext):IntermediateStore = {
+    return new IntermediateStore(sparkContext,config.getString(KEY_INCREMENTAL_IMSTORE_HDFS),
+      config.getString(KEY_INCREMENTAL_IMSTORE_LOCAL),sourceType)
   }
 }

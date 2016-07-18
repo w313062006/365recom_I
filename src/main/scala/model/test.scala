@@ -19,10 +19,20 @@ object test {
   def main(args: Array[String]) {
 
     val dm: Matrix = Matrices.dense(3, 2, Array(1.0, 3.0, 5.0, 2.0, 4.0, 6.0))
+    println(dm.toString())
     val m = dm.toArray
-    m.map(println)
+    println(m)
+//    m.map(println)
     val columns = m.toArray.grouped(3)
+//
+//
+//    for (i<-columns){
+//      println(if (i.isInstanceOf[Array[Double]]) 1)
+//    }
+
+
     val rows = columns.toSeq.transpose // Skip this if you want a column-major RDD.
+
     val vectors = rows.map(row => new DenseVector(row.toArray))
     for (i<-vectors){
       println(i.toString())

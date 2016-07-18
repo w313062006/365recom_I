@@ -3,17 +3,16 @@ package driver
 
 import com.google.common.collect.{HashBiMap, BiMap}
 import databuild.LogDateFrameProcessor
-import datasource.SourceType
 import datasource.SourceType.SourceType
 import datasource.{AppLogTransformer, WebLogTransformer, HDFSDataSource, SourceType}
+import filter._
+import mlprocess.{JaccardItemRecommender, SVDItemSimilarityComputer}
 import model.{ItemUtils, Item}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
 import org.joda.time.LocalDate
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
-import output.RecommendResult
 import scala.collection.JavaConverters._
 
 /**
@@ -67,7 +66,20 @@ class JobDriver {
     logger.info("评分矩阵与数据库房源中的交集个数是" + indexItemBiMap.size())
 
     //训练SVD相似性计算器
-
+    val computer = new SVDItemSimilarityComputer()
+    computer.train(uiRDD,userRSIDIndexBiMap.size(),itemRSIDIndexBiMap.size())
+    //如果当前是猜你喜欢，则保存中间结果
+    if (jobConfiguration.getRecommendType == RecommendType.INTEREST){
+      jobConfiguration.getIntermediateStore(sc).save(userRSIDIndexBiMap,itemRSIDIndexBiMap,computer,uiRDD)
+    }
+    //构建过滤器
+    val filter = constructFilter(jobConfiguration)
+    val recommender = new JaccardItemRecommender(sc,
+                                                 userRSIDIndexBiMap,
+                                                 itemRSIDIndexBiMap,
+                                                 computer,
+                                                 filter,
+                                                 jobConfiguration)
 
 
   }
@@ -107,5 +119,22 @@ class JobDriver {
       if (_itemRSIDIndexBiMap.containsKey(rsid)) indexItemBiMap.put(_itemRSIDIndexBiMap.get(rsid),i)
     }
     indexItemBiMap
+  }
+
+  def constructFilter(jobConfiguration: JobConfiguration) : CandidateFilter = {
+    val recommendType = jobConfiguration.getRecommendType
+    recommendType match{
+      case RecommendType.PRICE => new CandidateFilterChain(jobConfiguration.getRecommendNum,
+                                                           new CityChannelPriceTypeCandidateFilter,
+                                                           new SaleStateCandidateFilter,
+                                                           new PriceCandidateFilter(jobConfiguration.getPriceSegmentsFactory))
+      case RecommendType.LOCAL => new CandidateFilterChain(jobConfiguration.getRecommendNum,
+                                                           new CityChannelPriceTypeCandidateFilter,
+                                                           new SaleStateCandidateFilter,
+                                                           new LocalCandidateFilter)
+      case _ => new CandidateFilterChain(jobConfiguration.getRecommendNum,
+                                         new CityChannelPriceTypeCandidateFilter,
+                                         new SaleStateCandidateFilter)
+    }
   }
 }
