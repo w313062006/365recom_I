@@ -16,7 +16,7 @@ class PriceCandidateFilter(priceSegmenterFactory: PriceSegmenterFactory) extends
     if (segmenter == null){
       collection.immutable.Set.empty[Item]
     }
-    val candidates = Sets.newHashSet()[Item]
+    val candidates = Sets.newHashSet[Item]()
     for (i<-all){
       if (segmenter.getStage(a.price) == segmenter.getStage(i.price) && i.price != 0){
         candidates.add(i)

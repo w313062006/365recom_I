@@ -20,6 +20,7 @@ import org.apache.commons.dbutils.{BasicRowProcessor, QueryRunner, ResultSetHand
 import com.google.common.collect.{Table,HashBasedTable}
 import org.apache.spark.SparkContext
 import output.IntermediateStore
+import scala.collection.JavaConverters._
 
 
 /**
@@ -160,7 +161,7 @@ class JobConfiguration(_sourceType: SourceType,_recommendType:RecommendType,conf
   /**
     * 所有房源对应的item
     */
-  def getItems: util.List[Item] = itemSupplier.get()
+  def getItems: List[Item] = itemSupplier.get().asScala.toList
   def getAppPageId:util.List[String] = appPageIdSupplier.get()
 
   def getPriceSegmentsFactory:PriceSegmenterFactory = {

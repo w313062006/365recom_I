@@ -21,10 +21,12 @@ object test {
     val dm: Matrix = Matrices.dense(3, 2, Array(1.0, 3.0, 5.0, 2.0, 4.0, 6.0))
     println(dm.toString())
     val m = dm.toArray
-    println(m)
+    //println(m)
 //    m.map(println)
     val columns = m.toArray.grouped(3)
+    println(columns.size)
 //
+
 //
 //    for (i<-columns){
 //      println(if (i.isInstanceOf[Array[Double]]) 1)

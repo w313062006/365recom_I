@@ -1,8 +1,9 @@
 package mlprocess
 
 import org.apache.spark.SparkContext
-import org.apache.spark.mllib.linalg.{DenseMatrix,Matrix,DenseVector,Vector,Vectors}
+import org.apache.spark.mllib.linalg.{DenseMatrix,Matrix,Vector,Vectors}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.mllib.feature.Normalizer
 import org.apache.spark.mllib.linalg.distributed.{IndexedRowMatrix, MatrixEntry, CoordinateMatrix}
 import scala.math._
@@ -21,34 +22,37 @@ class SVDItemSimilarityComputer extends Serializable{
     //使用rowmatrix可以直接使用normalizer的方法，但是后续的计算需要转换，暂时放弃自带API，自己实现norm的方法在Matrix格式上
     //val normMatrix = new Normalizer().transform(SVDItemSimilarityComputer.toRDD(vprime,uiRDD.sparkContext))
     //itemMatrix = new DenseMatrix(vprime.numRows,vprime.numCols,normMatrix)
-    itemMatrix = new DenseMatrix(vprime.numRows, vprime.numCols, vprime.toArray);
+    itemMatrix = new DenseMatrix(vprime.numRows, vprime.numCols, vprime.toArray)
     // 列向量归一化
-    normr(itemMatrix);
+    itemMatrix = normr(itemMatrix)
 
     //normr(new DenseMatrix(vprime.numRows,vprime.numCols,vprime.toArray))
   }
   def compute(idxA:Int,idxB:Int):Double={
-    var sim = 0
+    var sim:Double = 0
     for (i<-0 to itemMatrix.numCols-1){
       sim += (itemMatrix(idxA,i) * itemMatrix(idxB,i))
     }
     sim
   }
-  def normr(v:Matrix):Unit = {
-    val values = v.toArray
+  def normr(v:Matrix):DenseMatrix = {
+    val values:Array[Double] = v.toArray
+
     val m = v.numRows
     val n = v.numCols
-    var normr = new Array[Double](n)
+    val normr = new Array[Double](n)
     for (i<-0 to m-1){
-      var norm = 0
+      var norm:Double = 0
       for (j<-0 to n-1){
         norm += math.pow(v.apply(i,j),2)
       }
       normr(i) = math.sqrt(norm)
     }
     for (i<-0 to m-1;j<-0 to n-1){
-      v.apply(i,j) /= normr(i)
+      //v.apply(i,j) /= normr(i)
+      values(SVDItemSimilarityComputer.index(i,j)) /= normr(i)
     }
+    new DenseMatrix(m,n,values)
   }
   object SVDItemSimilarityComputer{
     def toRDD(m: Matrix,sc: SparkContext): RDD[Vector] = {
@@ -57,6 +61,9 @@ class SVDItemSimilarityComputer extends Serializable{
       val vectors = rows.map(row => Vectors.dense(row.toArray))
       sc.parallelize(vectors)
 
+    }
+    def index(i: Int, j: Int): Int = {
+      if (!itemMatrix.isTransposed) i +itemMatrix.numRows * j else j + itemMatrix.numCols * i
     }
   }
   //def normr

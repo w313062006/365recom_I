@@ -30,7 +30,7 @@ class JobDriver {
   }
   private def warmup(jobConfiguration: JobConfiguration)={
     jobConfiguration.getItems
-    logger.info("房源个数(区分物业类型):" + jobConfiguration.getItems.size())
+    logger.info("房源个数(区分物业类型):" + jobConfiguration.getItems.size)
     if (jobConfiguration.getRecommendType == RecommendType.PRICE) jobConfiguration.getPriceSegmentsFactory
     if (jobConfiguration.getSourceType == SourceType.APP) jobConfiguration.getAppPageId
     if (jobConfiguration.getRecommendType == RecommendType.INCREMENTAL) jobConfiguration.getDBDataSource
@@ -60,7 +60,7 @@ class JobDriver {
     uiRDD.cache()
 
     val indexItemBiMap = constructIndexItemBiMap(jobConfiguration.getSourceType,
-                                                 jobConfiguration.getItems.asScala.toList,
+                                                 jobConfiguration.getItems,
                                                  itemRSIDIndexBiMap)
 
     logger.info("评分矩阵与数据库房源中的交集个数是" + indexItemBiMap.size())
@@ -74,6 +74,7 @@ class JobDriver {
     }
     //构建过滤器
     val filter = constructFilter(jobConfiguration)
+    //构建推荐器
     val recommender = new JaccardItemRecommender(sc,
                                                  userRSIDIndexBiMap,
                                                  itemRSIDIndexBiMap,
